@@ -1,0 +1,35 @@
+# Firebase 인증 정보
+*.json
+
+# 파이썬 가상 환경
+venv/
+env/
+.venv/
+.env/
+v1/
+
+# 파이썬 캐시 파일
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 분배 / 패키징
+dist/
+build/
+*.egg-info/
+
+# 로그 파일
+*.log
+
+# 로컬 설정 파일
+.env
+
+# IDE 설정
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 운영체제 파일
+.DS_Store
+Thumbs.db 
