@@ -8,7 +8,8 @@ Firebase 데이터베이스에서 사용자의 체다 대화 및 식단 기록 �
 1. Firebase 데이터베이스 연결
 2. 사용자 이메일별 체다 대화 날짜 추출 (session > [이메일] > cheddar 문서 분석)
 3. 사용자 이메일별 식단 기록 날짜 추출 (session > [이메일] > meal_tracking 문서 분석)
-4. 결과를 테이블 형태로 README.md 파일에 저장
+4. 사용자 정보 추출 (patient > [이메일] > name)
+5. 결과를 테이블 형태로 README.md 파일에 저장
 """
 
 import firebase_admin
@@ -17,7 +18,7 @@ import datetime
 import calendar
 import os
 from collections import defaultdict
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set, Tuple, Optional
 
 class FirebaseAnalyzer:
     """Firebase 데이터베이스에서 사용자 활동 날짜를 추출하는 클래스"""
@@ -45,8 +46,9 @@ class FirebaseAnalyzer:
             "juhyen1221@naver.com",
             "jedidiah0219@gmail.com"
         ]
+        self.user_names = {}  # 사용자 이메일별 이름 저장
         
-    def extract_date_from_document_id(self, doc_id: str) -> datetime.date:
+    def extract_date_from_document_id(self, doc_id: str) -> Optional[datetime.date]:
         """
         문서 ID에서 날짜 정보 추출 (마지막 8자리에서 YYYYMMDD 형식 추출)
         
@@ -54,7 +56,7 @@ class FirebaseAnalyzer:
             doc_id: Firebase 문서 ID
             
         Returns:
-            추출된 날짜 객체
+            추출된 날짜 객체 또는 None
         """
         try:
             date_str = doc_id[-8:]  # 문서 ID의 마지막 8자리
@@ -65,6 +67,25 @@ class FirebaseAnalyzer:
         except (ValueError, IndexError):
             # 날짜 형식이 아닌 경우 None 반환
             return None
+    
+    def get_user_name(self, email: str) -> str:
+        """
+        환자 컬렉션에서 사용자 이름 가져오기
+        
+        Args:
+            email: 사용자 이메일
+            
+        Returns:
+            사용자 이름 또는 이메일 ID
+        """
+        try:
+            name_doc = self.db.collection('patient').document(email).get()
+            if name_doc.exists and 'name' in name_doc.to_dict():
+                return name_doc.to_dict()['name']
+            return email.split('@')[0]  # 이름이 없으면 이메일 ID 반환
+        except Exception as e:
+            print(f"사용자 이름 가져오기 오류 ({email}): {e}")
+            return email.split('@')[0]
     
     def get_cheddar_conversation_dates(self, email: str) -> Set[datetime.date]:
         """
@@ -114,35 +135,43 @@ class FirebaseAnalyzer:
             
         return meal_dates
     
-    def analyze_all_users(self) -> Tuple[Dict[str, Set[datetime.date]], Dict[str, Set[datetime.date]]]:
+    def analyze_all_users(self) -> Tuple[Dict[str, Set[datetime.date]], Dict[str, Set[datetime.date]], Dict[str, str]]:
         """
         모든 사용자의 체다 대화 및 식단 기록 날짜 분석
         
         Returns:
-            (사용자별 체다 대화 날짜, 사용자별 식단 기록 날짜) 튜플
+            (사용자별 체다 대화 날짜, 사용자별 식단 기록 날짜, 사용자별 이름) 튜플
         """
         cheddar_dates_by_user = {}
         meal_dates_by_user = {}
+        user_names = {}
         
         for email in self.user_emails:
             print(f"{email} 사용자 데이터 분석 중...")
+            # 사용자 이름 가져오기
+            user_name = self.get_user_name(email)
+            user_names[email] = user_name
+            
+            # 체다 대화 및 식단 기록 날짜 가져오기
             cheddar_dates = self.get_cheddar_conversation_dates(email)
             meal_dates = self.get_meal_tracking_dates(email)
             
             cheddar_dates_by_user[email] = cheddar_dates
             meal_dates_by_user[email] = meal_dates
             
-        return cheddar_dates_by_user, meal_dates_by_user
+        return cheddar_dates_by_user, meal_dates_by_user, user_names
     
     def generate_markdown_table(self, 
                                cheddar_dates_by_user: Dict[str, Set[datetime.date]], 
-                               meal_dates_by_user: Dict[str, Set[datetime.date]]) -> str:
+                               meal_dates_by_user: Dict[str, Set[datetime.date]],
+                               user_names: Dict[str, str]) -> str:
         """
         마크다운 테이블 생성
         
         Args:
             cheddar_dates_by_user: 사용자별 체다 대화 날짜
             meal_dates_by_user: 사용자별 식단 기록 날짜
+            user_names: 사용자별 이름
             
         Returns:
             마크다운 테이블 문자열
@@ -156,23 +185,31 @@ class FirebaseAnalyzer:
         
         sorted_dates = sorted(all_dates)
         
+        # 현재 날짜와 시간
+        now = datetime.datetime.now()
+        today = now.date()
+        yesterday = today - datetime.timedelta(days=1)
+        two_days_ago = today - datetime.timedelta(days=2)
+        
         # 마크다운 테이블 헤더 생성
         markdown = "# 사용자 활동 분석\n\n"
+        markdown += f"## 분석 시간: {now.strftime('%Y-%m-%d %H:%M:%S')}\n\n"
         markdown += "## 체다 대화 및 식단 기록 날짜\n\n"
         
         # 날짜 헤더 생성
-        markdown += "| 이메일 |"
+        markdown += "| 사용자 | 이메일 |"
         for date in sorted_dates:
             markdown += f" {date.strftime('%Y-%m-%d')} |"
         markdown += "\n"
         
         # 테이블 구분선
-        markdown += "|" + "---|" * (len(sorted_dates) + 1) + "\n"
+        markdown += "|" + "---|" * (len(sorted_dates) + 2) + "\n"
         
         # 각 사용자별 데이터 행 추가
         for email in self.user_emails:
             email_display = email.split('@')[0]  # 이메일 아이디만 표시
-            markdown += f"| {email_display} |"
+            name_display = user_names.get(email, email_display)  # 사용자 이름
+            markdown += f"| {name_display} | {email_display} |"
             
             for date in sorted_dates:
                 cell_content = ""
@@ -188,26 +225,91 @@ class FirebaseAnalyzer:
         # 범례 추가
         markdown += "\n**범례**: C = 체다 대화, M = 식단 기록\n\n"
         
-        # 요약 정보 추가
-        markdown += "## 요약 정보\n\n"
+        # 최근 사용 기록 요약
+        markdown += "## 최근 사용 기록 요약\n\n"
         
-        # 체다 대화 횟수
-        markdown += "### 체다 대화 횟수\n\n"
-        markdown += "| 이메일 | 대화 횟수 |\n"
+        # 오늘 사용자
+        markdown += "### 오늘 사용 기록\n\n"
+        markdown += "| 사용자 | 사용 유형 |\n"
         markdown += "|---|---|\n"
+        today_users_found = False
         for email in self.user_emails:
-            email_display = email.split('@')[0]
-            count = len(cheddar_dates_by_user.get(email, set()))
-            markdown += f"| {email_display} | {count} |\n"
+            name_display = user_names.get(email, email.split('@')[0])
+            today_activities = []
+            
+            if today in cheddar_dates_by_user.get(email, set()):
+                today_activities.append("체다 대화")
+            if today in meal_dates_by_user.get(email, set()):
+                today_activities.append("식단 기록")
+                
+            if today_activities:
+                today_users_found = True
+                markdown += f"| {name_display} | {', '.join(today_activities)} |\n"
         
-        # 식단 기록 횟수
-        markdown += "\n### 식단 기록 횟수\n\n"
-        markdown += "| 이메일 | 기록 횟수 |\n"
+        if not today_users_found:
+            markdown += "| - | 오늘 사용 기록이 없습니다 |\n"
+            
+        # 어제 사용자
+        markdown += "\n### 어제 사용 기록\n\n"
+        markdown += "| 사용자 | 사용 유형 |\n"
         markdown += "|---|---|\n"
+        yesterday_users_found = False
         for email in self.user_emails:
-            email_display = email.split('@')[0]
-            count = len(meal_dates_by_user.get(email, set()))
-            markdown += f"| {email_display} | {count} |\n"
+            name_display = user_names.get(email, email.split('@')[0])
+            yesterday_activities = []
+            
+            if yesterday in cheddar_dates_by_user.get(email, set()):
+                yesterday_activities.append("체다 대화")
+            if yesterday in meal_dates_by_user.get(email, set()):
+                yesterday_activities.append("식단 기록")
+                
+            if yesterday_activities:
+                yesterday_users_found = True
+                markdown += f"| {name_display} | {', '.join(yesterday_activities)} |\n"
+        
+        if not yesterday_users_found:
+            markdown += "| - | 어제 사용 기록이 없습니다 |\n"
+            
+        # 2일 전 사용자
+        markdown += "\n### 2일 전 사용 기록\n\n"
+        markdown += "| 사용자 | 사용 유형 |\n"
+        markdown += "|---|---|\n"
+        two_days_ago_users_found = False
+        for email in self.user_emails:
+            name_display = user_names.get(email, email.split('@')[0])
+            two_days_ago_activities = []
+            
+            if two_days_ago in cheddar_dates_by_user.get(email, set()):
+                two_days_ago_activities.append("체다 대화")
+            if two_days_ago in meal_dates_by_user.get(email, set()):
+                two_days_ago_activities.append("식단 기록")
+                
+            if two_days_ago_activities:
+                two_days_ago_users_found = True
+                markdown += f"| {name_display} | {', '.join(two_days_ago_activities)} |\n"
+        
+        if not two_days_ago_users_found:
+            markdown += "| - | 2일 전 사용 기록이 없습니다 |\n"
+            
+        # 사용자별 최근 활동
+        markdown += "\n### 사용자별 최근 사용 기록\n\n"
+        markdown += "| 사용자 | 최근 체다 대화 | 최근 식단 기록 |\n"
+        markdown += "|---|---|---|\n"
+        
+        for email in self.user_emails:
+            name_display = user_names.get(email, email.split('@')[0])
+            
+            # 최근 체다 대화 날짜
+            cheddar_dates = cheddar_dates_by_user.get(email, set())
+            latest_cheddar = max(cheddar_dates) if cheddar_dates else None
+            cheddar_display = latest_cheddar.strftime('%Y-%m-%d') if latest_cheddar else "없음"
+            
+            # 최근 식단 기록 날짜
+            meal_dates = meal_dates_by_user.get(email, set())
+            latest_meal = max(meal_dates) if meal_dates else None
+            meal_display = latest_meal.strftime('%Y-%m-%d') if latest_meal else "없음"
+            
+            markdown += f"| {name_display} | {cheddar_display} | {meal_display} |\n"
         
         return markdown
     
@@ -236,10 +338,10 @@ def main():
     
     # Firebase 분석기 생성 및 실행
     analyzer = FirebaseAnalyzer(credential_path)
-    cheddar_dates, meal_dates = analyzer.analyze_all_users()
+    cheddar_dates, meal_dates, user_names = analyzer.analyze_all_users()
     
     # 마크다운 테이블 생성 및 저장
-    markdown = analyzer.generate_markdown_table(cheddar_dates, meal_dates)
+    markdown = analyzer.generate_markdown_table(cheddar_dates, meal_dates, user_names)
     analyzer.save_to_readme(markdown)
 
 
