@@ -44,7 +44,8 @@ class FirebaseAnalyzer:
             "aa01094102563@gmail.com",
             "a01093053968@gmail.com",
             "juhyen1221@naver.com",
-            "jedidiah0219@gmail.com"
+            "jedidiah0219@gmail.com",
+            "chgml080925@hanmail.net"
         ]
         self.user_names = {}  # 사용자 이메일별 이름 저장
         
