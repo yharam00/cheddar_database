@@ -336,7 +336,7 @@ class FirebaseAnalyzer:
 def main():
     """메인 함수"""
     # Firebase 인증 정보 경로 설정
-    credential_path = "/Users/yoonharam/Desktop/25년연구/체다 연구 (개발은 24년 폴더로)/관리자모드/haram-mindfuldiary1-firebase-adminsdk-zm9xb-c4eb736168.json"
+    credential_path = r"C:\Users\wonky\Desktop\cheddar_admin\cheddar_database\haram-mindfuldiary1-firebase-adminsdk-zm9xb-c4eb736168.json"
 
     # 인증 정보 파일 존재 확인
     if not os.path.exists(credential_path):
