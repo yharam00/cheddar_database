@@ -2,14 +2,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Firebase 데이터베이스에서 사용자의 체다 대화 및 식단 기록 날짜를 추출하여 테이블 형태로 README.md에 저장하는 스크립트
+Firebase 데이터베이스에서 사용자의 체다 대화, 식단 기록 날짜 및 체중 정보를 추출하여 테이블 형태로 README.md에 저장하는 스크립트
 
 이 스크립트는 다음 기능을 수행합니다:
 1. Firebase 데이터베이스 연결
 2. 사용자 이메일별 체다 대화 날짜 추출 (session > [이메일] > cheddar 문서 분석)
 3. 사용자 이메일별 식단 기록 날짜 추출 (session > [이메일] > meal_tracking 문서 분석)
-4. 사용자 정보 추출 (patient > [이메일] > name)
-5. 결과를 테이블 형태로 README.md 파일에 저장
+4. 사용자 이메일별 체중 기록 데이터 추출 (session > [이메일] > chat_ignore_weekly_data > [날짜] > weight)
+5. 사용자 정보 추출 (patient > [이메일] > name)
+6. 결과를 테이블 형태로 README.md 파일에 저장
 """
 
 import firebase_admin
@@ -18,10 +19,10 @@ import datetime
 import calendar
 import os
 from collections import defaultdict
-from typing import Dict, List, Set, Tuple, Optional
+from typing import Dict, List, Set, Tuple, Optional, Any
 
 class FirebaseAnalyzer:
-    """Firebase 데이터베이스에서 사용자 활동 날짜를 추출하는 클래스"""
+    """Firebase 데이터베이스에서 사용자 활동 날짜와 체중 정보를 추출하는 클래스"""
     
     def __init__(self, credential_path: str) -> None:
         """
@@ -143,15 +144,42 @@ class FirebaseAnalyzer:
             
         return meal_dates
     
-    def analyze_all_users(self) -> Tuple[Dict[str, Set[datetime.date]], Dict[str, Set[datetime.date]], Dict[str, str]]:
+    def get_weight_data(self, email: str) -> Dict[datetime.date, float]:
         """
-        모든 사용자의 체다 대화 및 식단 기록 날짜 분석
+        특정 사용자의 체중 기록 추출
+        
+        Args:
+            email: 사용자 이메일
+            
+        Returns:
+            날짜별 체중 데이터 딕셔너리
+        """
+        weight_data = {}
+        weekly_data_ref = self.db.collection('session').document(email).collection('chat_ignore_weekly_data')
+        
+        try:
+            docs = weekly_data_ref.stream()
+            for doc in docs:
+                date = self.extract_date_from_document_id(doc.id)
+                if date and 'weight' in doc.to_dict():
+                    weight = doc.to_dict()['weight']
+                    if isinstance(weight, (int, float)) and weight > 0:
+                        weight_data[date] = float(weight)
+        except Exception as e:
+            print(f"체중 데이터 추출 오류 ({email}): {e}")
+            
+        return weight_data
+    
+    def analyze_all_users(self) -> Tuple[Dict[str, Set[datetime.date]], Dict[str, Set[datetime.date]], Dict[str, Dict[datetime.date, float]], Dict[str, str]]:
+        """
+        모든 사용자의 체다 대화, 식단 기록 날짜 및 체중 데이터 분석
         
         Returns:
-            (사용자별 체다 대화 날짜, 사용자별 식단 기록 날짜, 사용자별 이름) 튜플
+            (사용자별 체다 대화 날짜, 사용자별 식단 기록 날짜, 사용자별 체중 데이터, 사용자별 이름) 튜플
         """
         cheddar_dates_by_user = {}
         meal_dates_by_user = {}
+        weight_data_by_user = {}
         user_names = {}
         
         for email in self.user_emails:
@@ -164,14 +192,19 @@ class FirebaseAnalyzer:
             cheddar_dates = self.get_cheddar_conversation_dates(email)
             meal_dates = self.get_meal_tracking_dates(email)
             
+            # 체중 데이터 가져오기
+            weight_data = self.get_weight_data(email)
+            
             cheddar_dates_by_user[email] = cheddar_dates
             meal_dates_by_user[email] = meal_dates
+            weight_data_by_user[email] = weight_data
             
-        return cheddar_dates_by_user, meal_dates_by_user, user_names
+        return cheddar_dates_by_user, meal_dates_by_user, weight_data_by_user, user_names
     
     def generate_markdown_table(self, 
                                cheddar_dates_by_user: Dict[str, Set[datetime.date]], 
                                meal_dates_by_user: Dict[str, Set[datetime.date]],
+                               weight_data_by_user: Dict[str, Dict[datetime.date, float]],
                                user_names: Dict[str, str]) -> str:
         """
         마크다운 테이블 생성
@@ -179,6 +212,7 @@ class FirebaseAnalyzer:
         Args:
             cheddar_dates_by_user: 사용자별 체다 대화 날짜
             meal_dates_by_user: 사용자별 식단 기록 날짜
+            weight_data_by_user: 사용자별 체중 데이터
             user_names: 사용자별 이름
             
         Returns:
@@ -232,6 +266,33 @@ class FirebaseAnalyzer:
         
         # 범례 추가
         markdown += "\n**범례**: C = 체다 대화, M = 식단 기록\n\n"
+        
+        # 체중 데이터 테이블
+        markdown += "## 사용자별 체중 변화 기록\n\n"
+        
+        # 체중 데이터가 있는 사용자 필터링
+        users_with_weight_data = [email for email in self.user_emails if weight_data_by_user.get(email)]
+        
+        if users_with_weight_data:
+            for email in users_with_weight_data:
+                name_display = user_names.get(email, email.split('@')[0])
+                weight_data = weight_data_by_user.get(email, {})
+                
+                if weight_data:
+                    markdown += f"### {name_display}의 체중 기록\n\n"
+                    markdown += "| 날짜 | 체중(kg) |\n"
+                    markdown += "|---|---:|\n"
+                    
+                    # 날짜별로 정렬
+                    sorted_weight_dates = sorted(weight_data.keys(), reverse=True)
+                    
+                    for date in sorted_weight_dates:
+                        weight = weight_data[date]
+                        markdown += f"| {date.strftime('%Y-%m-%d')} | {weight:.1f} |\n"
+                    
+                    markdown += "\n"
+        else:
+            markdown += "체중 기록이 있는 사용자가 없습니다.\n\n"
         
         # 최근 사용 기록 요약
         markdown += "## 최근 사용 기록 요약\n\n"
@@ -301,8 +362,8 @@ class FirebaseAnalyzer:
             
         # 사용자별 최근 활동
         markdown += "\n### 사용자별 최근 사용 기록\n\n"
-        markdown += "| 사용자 | 최근 체다 대화 | 최근 식단 기록 |\n"
-        markdown += "|---|---|---|\n"
+        markdown += "| 사용자 | 최근 체다 대화 | 최근 식단 기록 | 최근 체중 기록 |\n"
+        markdown += "|---|---|---|---|\n"
         
         for email in self.user_emails:
             name_display = user_names.get(email, email.split('@')[0])
@@ -317,7 +378,17 @@ class FirebaseAnalyzer:
             latest_meal = max(meal_dates) if meal_dates else None
             meal_display = latest_meal.strftime('%Y-%m-%d') if latest_meal else "없음"
             
-            markdown += f"| {name_display} | {cheddar_display} | {meal_display} |\n"
+            # 최근 체중 기록 날짜 및 값
+            weight_dates = list(weight_data_by_user.get(email, {}).keys())
+            latest_weight_date = max(weight_dates) if weight_dates else None
+            latest_weight = weight_data_by_user.get(email, {}).get(latest_weight_date) if latest_weight_date else None
+            
+            if latest_weight_date and latest_weight:
+                weight_display = f"{latest_weight_date.strftime('%Y-%m-%d')} ({latest_weight:.1f}kg)"
+            else:
+                weight_display = "없음"
+            
+            markdown += f"| {name_display} | {cheddar_display} | {meal_display} | {weight_display} |\n"
         
         return markdown
     
@@ -346,10 +417,10 @@ def main():
     
     # Firebase 분석기 생성 및 실행
     analyzer = FirebaseAnalyzer(credential_path)
-    cheddar_dates, meal_dates, user_names = analyzer.analyze_all_users()
+    cheddar_dates, meal_dates, weight_data, user_names = analyzer.analyze_all_users()
     
     # 마크다운 테이블 생성 및 저장
-    markdown = analyzer.generate_markdown_table(cheddar_dates, meal_dates, user_names)
+    markdown = analyzer.generate_markdown_table(cheddar_dates, meal_dates, weight_data, user_names)
     analyzer.save_to_readme(markdown)
 
 
