@@ -258,10 +258,10 @@ class FirebaseAnalyzer:
         markdown += "| 사용자 | 이메일 |"
         for date in sorted_dates:
             markdown += f" {date.strftime('%Y-%m-%d')} |"
-        markdown += "\n"
+        markdown += " 사용자 |\n"
         
         # 테이블 구분선
-        markdown += "|" + "---|" * (len(sorted_dates) + 2) + "\n"
+        markdown += "|" + "---|" * (len(sorted_dates) + 3) + "\n"
         
         # 각 사용자별 데이터 행 추가
         for email in self.user_emails:
@@ -278,7 +278,7 @@ class FirebaseAnalyzer:
                 
                 markdown += f" {cell_content} |"
             
-            markdown += "\n"
+            markdown += f" {name_display} |\n"
         
         # 범례 추가
         markdown += "\n**범례**: C = 체다 대화, M = 식단 기록\n\n"
