@@ -35,6 +35,45 @@ class FirebaseAnalyzer:
         firebase_admin.initialize_app(self.cred)
         self.db = firestore.client()
         self.user_emails = [
+            # "lsm040117@gmail.com",
+            # "ddocdk77@gmail.com",
+            # "qqyer6953@naver.com",
+            # "wonhyeonseo62@gmail.com",
+            # "asnox07@naver.com",
+            # "081212hy@gmail.con",
+            # "elprup135@gmail.com",
+            # "tlsworua821@gmail.com",
+
+            # "ijeongyeon199@gmail.com",
+            # "cjh060914@gmail.com",
+            # "a01056848676@gmail.com",
+            # "ppulyon9@gmail.com",
+            # "heb75707@gmail.com",
+            # "eg13111@gmail.com",
+            # "namgiseong8@gmail.com",
+            # "aa01094102563@gmail.com",
+            # "a01093053968@gmail.com",
+            # "juhyen1221@naver.com",
+            # "jedidiah0219@gmail.com",
+            # "chgml080925@hanmail.net",
+
+            # "bugae48@gmail.com",
+            # "qkrgkdus6104@gmail.com",
+            # "park21770420@icloud.com",
+            # "55413175a@gmail.com",
+            # "amchiyongjh@gmail.com",
+            # "haerinshin@naver.com",
+            # "imsarang4825@gmail.com",
+
+            # "01086506058@naver.com",
+            # "kimjiho1079@naver.com",
+            # "01082792251@naver.com",
+            # "two0329@naver.com",
+            # "01076733914@naver.com",
+
+            # "imsohui541@gmail.com",
+            # "aaaaaa101@naver.com",
+
             "lsm040117@gmail.com",
             "ddocdk77@gmail.com",
             "qqyer6953@naver.com",
@@ -43,7 +82,6 @@ class FirebaseAnalyzer:
             "081212hy@gmail.con",
             "elprup135@gmail.com",
             "tlsworua821@gmail.com",
-
             "ijeongyeon199@gmail.com",
             "cjh060914@gmail.com",
             "a01056848676@gmail.com",
@@ -56,7 +94,6 @@ class FirebaseAnalyzer:
             "juhyen1221@naver.com",
             "jedidiah0219@gmail.com",
             "chgml080925@hanmail.net",
-
             "bugae48@gmail.com",
             "qkrgkdus6104@gmail.com",
             "park21770420@icloud.com",
@@ -64,13 +101,12 @@ class FirebaseAnalyzer:
             "amchiyongjh@gmail.com",
             "haerinshin@naver.com",
             "imsarang4825@gmail.com",
-
+            "asnox07@naver.com",
             "01086506058@naver.com",
             "kimjiho1079@naver.com",
             "01082792251@naver.com",
             "two0329@naver.com",
             "01076733914@naver.com",
-
             "imsohui541@gmail.com",
             "aaaaaa101@naver.com",
         ]
