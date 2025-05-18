@@ -275,12 +275,14 @@ class FirebaseAnalyzer:
         Returns:
             마크다운 테이블 문자열
         """
-        # 모든 날짜 수집 및 정렬
-        all_dates = set()
-        for dates in cheddar_dates_by_user.values():
-            all_dates.update(dates)
-        for dates in meal_dates_by_user.values():
-            all_dates.update(dates)
+        # 2025년 3월 31일부터 오늘까지의 모든 날짜 생성
+        start_date = datetime.date(2025, 3, 31)
+        end_date = datetime.date.today()
+        all_dates = []
+        current_date = start_date
+        while current_date <= end_date:
+            all_dates.append(current_date)
+            current_date += datetime.timedelta(days=1)
         
         sorted_dates = sorted(all_dates)
         
