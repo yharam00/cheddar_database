@@ -472,14 +472,14 @@ class FirebaseAnalyzer:
             meal_dates_by_user: 사용자별 식단 기록 날짜
             user_names: 사용자별 이름
         """
-        # 모든 날짜 수집 및 정렬
-        all_dates = set()
-        for dates in cheddar_dates_by_user.values():
-            all_dates.update(dates)
-        for dates in meal_dates_by_user.values():
-            all_dates.update(dates)
-        
-        sorted_dates = sorted(all_dates)
+        # 2025년 3월 31일까지의 모든 날짜 생성
+        start_date = datetime.date(2024, 1, 1)
+        end_date = datetime.date(2025, 3, 31)
+        all_dates = []
+        current_date = start_date
+        while current_date <= end_date:
+            all_dates.append(current_date)
+            current_date += datetime.timedelta(days=1)
         
         # 데이터프레임 생성을 위한 데이터 준비
         data = []
@@ -487,14 +487,10 @@ class FirebaseAnalyzer:
             name_display = user_names.get(email, email.split('@')[0])
             row_data = {'사용자': name_display, '이메일': email.split('@')[0]}
             
-            for date in sorted_dates:
+            for date in all_dates:
                 cell_content = ""
-                if date in cheddar_dates_by_user.get(email, set()):
-                    cell_content += "대화"
-                if date in meal_dates_by_user.get(email, set()):
-                    if cell_content:
-                        cell_content += ", "
-                    cell_content += "식단"
+                if date in cheddar_dates_by_user.get(email, set()) or date in meal_dates_by_user.get(email, set()):
+                    cell_content = "대화"
                 
                 row_data[date.strftime('%Y-%m-%d')] = cell_content
             
