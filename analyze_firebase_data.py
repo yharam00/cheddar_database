@@ -472,9 +472,9 @@ class FirebaseAnalyzer:
             meal_dates_by_user: 사용자별 식단 기록 날짜
             user_names: 사용자별 이름
         """
-        # 2025년 3월 31일까지의 모든 날짜 생성
-        start_date = datetime.date(2024, 1, 1)
-        end_date = datetime.date(2025, 3, 31)
+        # 2025년 3월 31일부터 오늘까지의 모든 날짜 생성
+        start_date = datetime.date(2025, 3, 31)
+        end_date = datetime.date.today()
         all_dates = []
         current_date = start_date
         while current_date <= end_date:
