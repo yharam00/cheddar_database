@@ -11,6 +11,7 @@ Firebase 데이터베이스에서 사용자의 체다 대화, 식단 기록 날�
 4. 사용자 이메일별 체중 기록 데이터 추출 (session > [이메일] > chat_ignore_weekly_data > [날짜] > weight)
 5. 사용자 정보 추출 (patient > [이메일] > name)
 6. 결과를 테이블 형태로 README.md 파일에 저장
+7. 체다 대화 및 식단 기록 날짜 정보를 엑셀 파일로 저장
 """
 
 import firebase_admin
@@ -18,6 +19,7 @@ from firebase_admin import credentials, firestore
 import datetime
 import calendar
 import os
+import pandas as pd
 from collections import defaultdict
 from typing import Dict, List, Set, Tuple, Optional, Any
 
@@ -458,6 +460,54 @@ class FirebaseAnalyzer:
             f.write(markdown_content)
         print("분석 결과가 README.md 파일에 저장되었습니다.")
 
+    def save_to_excel(self, 
+                     cheddar_dates_by_user: Dict[str, Set[datetime.date]], 
+                     meal_dates_by_user: Dict[str, Set[datetime.date]],
+                     user_names: Dict[str, str]) -> None:
+        """
+        체다 대화 및 식단 기록 날짜 정보를 엑셀 파일로 저장
+        
+        Args:
+            cheddar_dates_by_user: 사용자별 체다 대화 날짜
+            meal_dates_by_user: 사용자별 식단 기록 날짜
+            user_names: 사용자별 이름
+        """
+        # 모든 날짜 수집 및 정렬
+        all_dates = set()
+        for dates in cheddar_dates_by_user.values():
+            all_dates.update(dates)
+        for dates in meal_dates_by_user.values():
+            all_dates.update(dates)
+        
+        sorted_dates = sorted(all_dates)
+        
+        # 데이터프레임 생성을 위한 데이터 준비
+        data = []
+        for email in self.user_emails:
+            name_display = user_names.get(email, email.split('@')[0])
+            row_data = {'사용자': name_display, '이메일': email.split('@')[0]}
+            
+            for date in sorted_dates:
+                cell_content = ""
+                if date in cheddar_dates_by_user.get(email, set()):
+                    cell_content += "대화"
+                if date in meal_dates_by_user.get(email, set()):
+                    if cell_content:
+                        cell_content += ", "
+                    cell_content += "식단"
+                
+                row_data[date.strftime('%Y-%m-%d')] = cell_content
+            
+            data.append(row_data)
+        
+        # 데이터프레임 생성
+        df = pd.DataFrame(data)
+        
+        # 엑셀 파일로 저장
+        excel_path = "체다_대화_식단_기록.xlsx"
+        df.to_excel(excel_path, index=False)
+        print(f"분석 결과가 {excel_path} 파일에 저장되었습니다.")
+
 
 def main():
     """메인 함수"""
@@ -477,6 +527,9 @@ def main():
     # 마크다운 테이블 생성 및 저장
     markdown = analyzer.generate_markdown_table(cheddar_dates, meal_dates, weight_data, user_names)
     analyzer.save_to_readme(markdown)
+    
+    # 엑셀 파일로 저장
+    analyzer.save_to_excel(cheddar_dates, meal_dates, user_names)
 
 
 if __name__ == "__main__":
