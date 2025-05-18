@@ -491,8 +491,13 @@ class FirebaseAnalyzer:
             
             for date in all_dates:
                 cell_content = ""
-                if date in cheddar_dates_by_user.get(email, set()) or date in meal_dates_by_user.get(email, set()):
+                has_cheddar = date in cheddar_dates_by_user.get(email, set())
+                has_meal = date in meal_dates_by_user.get(email, set())
+                
+                if has_cheddar:
                     cell_content = "대화"
+                elif has_meal:
+                    cell_content = "식단"
                 
                 row_data[date.strftime('%Y-%m-%d')] = cell_content
             
