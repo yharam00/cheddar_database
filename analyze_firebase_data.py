@@ -123,6 +123,27 @@ class FirebaseAnalyzer:
             print(f"사용자 이름 가져오기 오류 ({email}): {e}")
             return email.split('@')[0]
     
+    def get_user_registration_date(self, email: str) -> Optional[datetime.date]:
+        """
+        환자 컬렉션에서 사용자 회원가입일 가져오기
+        
+        Args:
+            email: 사용자 이메일
+            
+        Returns:
+            회원가입일 또는 None
+        """
+        try:
+            user_doc = self.db.collection('patient').document(email).get()
+            if user_doc.exists and user_doc.create_time:
+                # Firestore의 create_time은 UTC 시간이므로 날짜만 추출
+                reg_date = user_doc.create_time.date()
+                return reg_date
+            return None
+        except Exception as e:
+            print(f"사용자 회원가입일 가져오기 오류 ({email}): {e}")
+            return None
+    
     def get_cheddar_conversation_dates(self, email: str) -> Set[datetime.date]:
         """
         특정 사용자의 체다 대화 날짜 추출
@@ -197,23 +218,28 @@ class FirebaseAnalyzer:
             
         return weight_data
     
-    def analyze_all_users(self) -> Tuple[Dict[str, Set[datetime.date]], Dict[str, Set[datetime.date]], Dict[str, Dict[datetime.date, float]], Dict[str, str]]:
+    def analyze_all_users(self) -> Tuple[Dict[str, Set[datetime.date]], Dict[str, Set[datetime.date]], Dict[str, Dict[datetime.date, float]], Dict[str, str], Dict[str, Optional[datetime.date]]]:
         """
         모든 사용자의 체다 대화, 식단 기록 날짜 및 체중 데이터 분석
         
         Returns:
-            (사용자별 체다 대화 날짜, 사용자별 식단 기록 날짜, 사용자별 체중 데이터, 사용자별 이름) 튜플
+            (사용자별 체다 대화 날짜, 사용자별 식단 기록 날짜, 사용자별 체중 데이터, 사용자별 이름, 사용자별 회원가입일) 튜플
         """
         cheddar_dates_by_user = {}
         meal_dates_by_user = {}
         weight_data_by_user = {}
         user_names = {}
+        user_registration_dates = {}
         
         for email in self.user_emails:
             print(f"{email} 사용자 데이터 분석 중...")
             # 사용자 이름 가져오기
             user_name = self.get_user_name(email)
             user_names[email] = user_name
+            
+            # 회원가입일 가져오기
+            registration_date = self.get_user_registration_date(email)
+            user_registration_dates[email] = registration_date
             
             # 체다 대화 및 식단 기록 날짜 가져오기
             cheddar_dates = self.get_cheddar_conversation_dates(email)
@@ -226,13 +252,14 @@ class FirebaseAnalyzer:
             meal_dates_by_user[email] = meal_dates
             weight_data_by_user[email] = weight_data
             
-        return cheddar_dates_by_user, meal_dates_by_user, weight_data_by_user, user_names
+        return cheddar_dates_by_user, meal_dates_by_user, weight_data_by_user, user_names, user_registration_dates
     
     def generate_markdown_table(self, 
                                cheddar_dates_by_user: Dict[str, Set[datetime.date]], 
                                meal_dates_by_user: Dict[str, Set[datetime.date]],
                                weight_data_by_user: Dict[str, Dict[datetime.date, float]],
-                               user_names: Dict[str, str]) -> str:
+                               user_names: Dict[str, str],
+                               registration_dates: Dict[str, Optional[datetime.date]]) -> str:
         """
         마크다운 테이블 생성
         
@@ -241,6 +268,7 @@ class FirebaseAnalyzer:
             meal_dates_by_user: 사용자별 식단 기록 날짜
             weight_data_by_user: 사용자별 체중 데이터
             user_names: 사용자별 이름
+            registration_dates: 사용자별 회원가입일
             
         Returns:
             마크다운 테이블 문자열
@@ -268,19 +296,20 @@ class FirebaseAnalyzer:
         markdown += "## 체다 대화 및 식단 기록 날짜\n\n"
         
         # 날짜 헤더 생성
-        markdown += "| 사용자 | 이메일 |"
+        markdown += "| 사용자 | 이메일 | 회원가입일 |"
         for date in sorted_dates:
             markdown += f" {date.strftime('%Y-%m-%d')} |"
         markdown += " 사용자 |\n"
         
         # 테이블 구분선
-        markdown += "|" + "---|" * (len(sorted_dates) + 3) + "\n"
+        markdown += "|" + "---|" * (len(sorted_dates) + 4) + "\n"
         
         # 각 사용자별 데이터 행 추가
         for email in self.user_emails:
             email_display = email.split('@')[0]  # 이메일 아이디만 표시
             name_display = user_names.get(email, email_display)  # 사용자 이름
-            markdown += f"| {name_display} | {email_display} |"
+            registration_display = registration_dates.get(email, "없음")
+            markdown += f"| {name_display} | {email_display} | {registration_display} |"
             
             for date in sorted_dates:
                 cell_content = ""
@@ -427,8 +456,8 @@ class FirebaseAnalyzer:
         # 카카오 알림톡 보낼 환자 명단 섹션 추가
         markdown += "\n## 카카오 알림톡 보낼 환자 명단\n\n"
         markdown += "### 어제 식단 기록을 하지 않은 환자\n\n"
-        markdown += "| 환자 이름 | 이메일 | 최근 식단 기록 |\n"
-        markdown += "|---|---|---|\n"
+        markdown += "| 환자 이름 | 이메일 | 회원가입일 | 최근 식단 기록 |\n"
+        markdown += "|---|---|---|---|\n"
         
         # 어제 식단 기록을 하지 않은 사람들 중, 제외 대상자가 아닌 사람들 필터링
         patients_for_notification = []
@@ -445,28 +474,37 @@ class FirebaseAnalyzer:
                 latest_meal = max(meal_dates) if meal_dates else None
                 meal_display = latest_meal.strftime('%Y-%m-%d') if latest_meal else "없음"
                 
-                patients_for_notification.append((name_display, email, meal_display))
+                registration_display = registration_dates.get(email, "없음")
+                if isinstance(registration_display, datetime.date):
+                    registration_display = registration_display.strftime('%Y-%m-%d')
+                
+                patients_for_notification.append((name_display, email, registration_display, meal_display))
         
         if patients_for_notification:
-            for name, email, last_meal in patients_for_notification:
+            for name, email, reg_date, last_meal in patients_for_notification:
                 email_display = email.split('@')[0]
-                markdown += f"| {name} | {email_display} | {last_meal} |\n"
+                markdown += f"| {name} | {email_display} | {reg_date} | {last_meal} |\n"
         else:
-            markdown += "| - | 어제 식단 기록을 하지 않은 환자가 없습니다 |\n"
+            markdown += "| - | - | - | 어제 식단 기록을 하지 않은 환자가 없습니다 |\n"
         
         # 현재 탈락 환자 표 추가
         markdown += "\n### 현재 탈락 환자\n\n"
-        markdown += "| 환자 이름 | 이메일 |\n"
-        markdown += "|---|---|\n"
+        markdown += "| 환자 이름 | 이메일 | 회원가입일 |\n"
+        markdown += "|---|---|---|\n"
         
         # 제외 대상자 목록으로 탈락 환자 표시
         if self.notification_exclude_list:
             for email in self.notification_exclude_list:
                 name_display = user_names.get(email, email.split('@')[0])
                 email_display = email.split('@')[0]
-                markdown += f"| {name_display} | {email_display} |\n"
+                
+                registration_display = registration_dates.get(email, "없음")
+                if isinstance(registration_display, datetime.date):
+                    registration_display = registration_display.strftime('%Y-%m-%d')
+                
+                markdown += f"| {name_display} | {email_display} | {registration_display} |\n"
         else:
-            markdown += "| - | 탈락 환자가 없습니다 |\n"
+            markdown += "| - | - | 탈락 환자가 없습니다 |\n"
         
         return markdown
     
@@ -554,10 +592,10 @@ def main():
     
     # Firebase 분석기 생성 및 실행
     analyzer = FirebaseAnalyzer(credential_path)
-    cheddar_dates, meal_dates, weight_data, user_names = analyzer.analyze_all_users()
+    cheddar_dates, meal_dates, weight_data, user_names, registration_dates = analyzer.analyze_all_users()
     
     # 마크다운 테이블 생성 및 저장
-    markdown = analyzer.generate_markdown_table(cheddar_dates, meal_dates, weight_data, user_names)
+    markdown = analyzer.generate_markdown_table(cheddar_dates, meal_dates, weight_data, user_names, registration_dates)
     analyzer.save_to_readme(markdown)
     
     # 엑셀 파일로 저장
