@@ -1,6 +1,3 @@
-# Firebase 인증 정보
-*.json
-
 # 파이썬 가상 환경
 venv/
 env/
@@ -59,3 +56,9 @@ Thumbs.db
 
 # Firebase credentials
 *-firebase-adminsdk-*.json
+
+/target_codes
+0514gpt_usage_preliminary.py
+instruction_explicit.txt
+prompt_explicit.txt
+prompt_for_gpt.txt
