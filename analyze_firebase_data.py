@@ -36,6 +36,16 @@ class FirebaseAnalyzer:
         self.cred = credentials.Certificate(credential_path)
         firebase_admin.initialize_app(self.cred)
         self.db = firestore.client()
+        # 카카오 알림톡 제외 대상자 리스트
+        self.notification_exclude_list = [
+            "lsm040117@gmail.com",
+            "qqyer6953@naver.com",
+            "081212hy@gmail.con",
+            "elprup135@gmail.com", 
+            "heb75707@gmail.com",
+            "eg13111@gmail.com",
+            "a01093053968@gmail.com",
+        ]
         self.user_emails = [
             # "lsm040117@gmail.com",
             # "ddocdk77@gmail.com",
@@ -452,6 +462,36 @@ class FirebaseAnalyzer:
                 weight_display = "없음"
             
             markdown += f"| {name_display} | {cheddar_display} | {meal_display} | {weight_display} |\n"
+        
+        # 카카오 알림톡 보낼 환자 명단 섹션 추가
+        markdown += "\n## 카카오 알림톡 보낼 환자 명단\n\n"
+        markdown += "### 어제 식단 기록을 하지 않은 환자\n\n"
+        markdown += "| 환자 이름 | 이메일 | 최근 식단 기록 |\n"
+        markdown += "|---|---|---|\n"
+        
+        # 어제 식단 기록을 하지 않은 사람들 중, 제외 대상자가 아닌 사람들 필터링
+        patients_for_notification = []
+        for email in self.user_emails:
+            if email in self.notification_exclude_list:
+                continue  # 제외 대상자는 건너뜀
+                
+            name_display = user_names.get(email, email.split('@')[0])
+            meal_dates = meal_dates_by_user.get(email, set())
+            
+            # 어제 식단 기록이 없는지 확인
+            if yesterday not in meal_dates:
+                # 최근 식단 기록 날짜
+                latest_meal = max(meal_dates) if meal_dates else None
+                meal_display = latest_meal.strftime('%Y-%m-%d') if latest_meal else "없음"
+                
+                patients_for_notification.append((name_display, email, meal_display))
+        
+        if patients_for_notification:
+            for name, email, last_meal in patients_for_notification:
+                email_display = email.split('@')[0]
+                markdown += f"| {name} | {email_display} | {last_meal} |\n"
+        else:
+            markdown += "| - | 어제 식단 기록을 하지 않은 환자가 없습니다 |\n"
         
         return markdown
     
