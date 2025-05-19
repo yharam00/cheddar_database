@@ -107,7 +107,7 @@ class FirebaseAnalyzer:
             "kimjiho1079@naver.com",
             "01082792251@naver.com",
             "two0329@naver.com",
-            "01076733914@naver.com",
+            "01076833914@naver.com",
             "imsohui541@gmail.com",
             "aaaaaa101@naver.com",
         ]
