@@ -454,6 +454,20 @@ class FirebaseAnalyzer:
         else:
             markdown += "| - | 어제 식단 기록을 하지 않은 환자가 없습니다 |\n"
         
+        # 현재 탈락 환자 표 추가
+        markdown += "\n### 현재 탈락 환자\n\n"
+        markdown += "| 환자 이름 | 이메일 |\n"
+        markdown += "|---|---|\n"
+        
+        # 제외 대상자 목록으로 탈락 환자 표시
+        if self.notification_exclude_list:
+            for email in self.notification_exclude_list:
+                name_display = user_names.get(email, email.split('@')[0])
+                email_display = email.split('@')[0]
+                markdown += f"| {name_display} | {email_display} |\n"
+        else:
+            markdown += "| - | 탈락 환자가 없습니다 |\n"
+        
         return markdown
     
     def save_to_readme(self, markdown_content: str) -> None:
