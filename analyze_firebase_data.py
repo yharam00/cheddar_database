@@ -103,7 +103,6 @@ class FirebaseAnalyzer:
             "amchiyongjh@gmail.com",
             "haerinshin@naver.com",
             "imsarang4825@gmail.com",
-            "asnox07@naver.com",
             "01086506058@naver.com",
             "kimjiho1079@naver.com",
             "01082792251@naver.com",
@@ -319,6 +318,11 @@ class FirebaseAnalyzer:
                 if date in meal_dates_by_user.get(email, set()):
                     cell_content += "M"
                 
+                # 체중 데이터 추가
+                weight = weight_data_by_user.get(email, {}).get(date)
+                if weight:
+                    cell_content += f" ({weight:.1f}kg)"
+                
                 markdown += f" {cell_content} |"
             
             markdown += f" {name_display} |\n"
@@ -465,6 +469,7 @@ class FirebaseAnalyzer:
     def save_to_excel(self, 
                      cheddar_dates_by_user: Dict[str, Set[datetime.date]], 
                      meal_dates_by_user: Dict[str, Set[datetime.date]],
+                     weight_data_by_user: Dict[str, Dict[datetime.date, float]],
                      user_names: Dict[str, str]) -> None:
         """
         체다 대화 및 식단 기록 날짜 정보를 엑셀 파일로 저장
@@ -472,6 +477,7 @@ class FirebaseAnalyzer:
         Args:
             cheddar_dates_by_user: 사용자별 체다 대화 날짜
             meal_dates_by_user: 사용자별 식단 기록 날짜
+            weight_data_by_user: 사용자별 체중 데이터
             user_names: 사용자별 이름
         """
         # 2025년 3월 31일부터 오늘까지의 모든 날짜 생성
@@ -498,6 +504,14 @@ class FirebaseAnalyzer:
                     cell_content = "대화"
                 elif has_meal:
                     cell_content = "식단"
+                
+                # 체중 데이터 추가
+                weight = weight_data_by_user.get(email, {}).get(date)
+                if weight:
+                    if cell_content:
+                        cell_content += f" ({weight:.1f}kg)"
+                    else:
+                        cell_content = f"({weight:.1f}kg)"
                 
                 row_data[date.strftime('%Y-%m-%d')] = cell_content
             
@@ -532,7 +546,7 @@ def main():
     analyzer.save_to_readme(markdown)
     
     # 엑셀 파일로 저장
-    analyzer.save_to_excel(cheddar_dates, meal_dates, user_names)
+    analyzer.save_to_excel(cheddar_dates, meal_dates, weight_data, user_names)
 
 
 if __name__ == "__main__":
