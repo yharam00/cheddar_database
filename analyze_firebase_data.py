@@ -40,11 +40,11 @@ class FirebaseAnalyzer:
         self.notification_exclude_list = [
             "lsm040117@gmail.com",
             "qqyer6953@naver.com",
-            "081212hy@gmail.con",
             "elprup135@gmail.com", 
             "heb75707@gmail.com",
             "eg13111@gmail.com",
             "a01093053968@gmail.com",
+            "01076833914@naver.com"
         ]
         self.user_emails = [
             "lsm040117@gmail.com",
@@ -86,7 +86,13 @@ class FirebaseAnalyzer:
             "jinnalim97@gmail.com",
             "moonqw04@naver.com",
             "leedh4614@nate.com",
-            "parkyeseo8209@gmail.com"
+            "parkyeseo8209@gmail.com",
+            "mttyuiopasd@gmail.com",
+            "bluecandy08@naver.com",
+            "thihongdiemle3@gmail.com",
+            "abs123123123123@gmail.com",
+            "ehrbs1015@gmail.com",
+            "swnike36@gmail.com"
         ]
         self.user_names = {}  # 사용자 이메일별 이름 저장
         
