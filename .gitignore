@@ -48,12 +48,6 @@ build/
 .DS_Store
 Thumbs.db 
 
-# Excel files
-*.xlsx
-*.xls
-*.xlsm
-*.xlsb
-
 # Firebase credentials
 *-firebase-adminsdk-*.json
 
